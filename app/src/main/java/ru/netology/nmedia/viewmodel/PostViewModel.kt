@@ -62,14 +62,12 @@ class PostViewModel @Inject constructor(
     val photo: LiveData<PhotoModel>
         get() = _photo
 
-    init {
-        loadPosts()
-    }
-
-    fun loadPosts() = viewModelScope.launch {
+    fun loadPosts(forceRefresh: Boolean = false) = viewModelScope.launch {
         try {
             _dataState.value = FeedModelState(loading = true)
-            repository.getAll()
+            if (forceRefresh) {
+                repository.getAll()
+            }
             _dataState.value = FeedModelState()
         } catch (e: Exception) {
             _dataState.value = FeedModelState(error = true)
@@ -126,5 +124,11 @@ class PostViewModel @Inject constructor(
 
     fun removeById(id: Long) {
         TODO()
+    }
+
+    init {
+        auth.authStateFlow.onEach { authState ->
+            loadPosts(forceRefresh = true)
+        }.launchIn(viewModelScope)
     }
 }

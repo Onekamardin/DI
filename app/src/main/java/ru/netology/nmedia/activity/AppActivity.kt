@@ -96,20 +96,20 @@ class AppActivity : AppCompatActivity() {
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
                 when (menuItem.itemId) {
                     R.id.signin -> {
-                        // TODO: just hardcode it, implementation must be in homework
                         auth.setAuth(5, "x-token")
+                        viewModel.loadPosts(forceRefresh = true)
                         true
                     }
 
                     R.id.signup -> {
-                        // TODO: just hardcode it, implementation must be in homework
                         auth.setAuth(5, "x-token")
+                        viewModel.loadPosts(forceRefresh = true)
                         true
                     }
 
                     R.id.signout -> {
-                        // TODO: just hardcode it, implementation must be in homework
                         auth.removeAuth()
+                        viewModel.loadPosts(forceRefresh = true)
                         true
                     }
 
