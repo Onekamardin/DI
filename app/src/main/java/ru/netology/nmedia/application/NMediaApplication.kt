@@ -5,9 +5,7 @@ import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import ru.netology.nmedia.auth.AppAuth
-import ru.netology.nmedia.service.FirebaseMessagingWrapper
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -17,9 +15,6 @@ class NMediaApplication : Application() {
     @Inject
     lateinit var auth: AppAuth
 
-    @Inject
-    lateinit var firebaseMessagingWrapper: FirebaseMessagingWrapper
-
     override fun onCreate() {
         super.onCreate()
         setupAuth()
@@ -27,12 +22,7 @@ class NMediaApplication : Application() {
 
     private fun setupAuth() {
         appScope.launch {
-            try {
-                val token = firebaseMessagingWrapper.token.await()
-                auth.sendPushToken(token)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            auth.sendPushToken()
         }
     }
 }

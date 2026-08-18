@@ -18,14 +18,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.findNavController
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.AndroidEntryPoint
 import ru.netology.nmedia.R
 import ru.netology.nmedia.auth.AppAuth
 import ru.netology.nmedia.activity.NewPostFragment.Companion.textArg
 import ru.netology.nmedia.databinding.ActivityAppBinding
-import ru.netology.nmedia.service.FirebaseMessagingWrapper
-import ru.netology.nmedia.service.GoogleApiAvailabilityWrapper
 import ru.netology.nmedia.viewmodel.AuthViewModel
+import ru.netology.nmedia.viewmodel.PostViewModel
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -34,13 +34,8 @@ class AppActivity : AppCompatActivity() {
     @Inject
     lateinit var auth: AppAuth
 
-    @Inject
-    lateinit var firebaseMessagingWrapper: FirebaseMessagingWrapper
-
-    @Inject
-    lateinit var googleApiAvailabilityWrapper: GoogleApiAvailabilityWrapper
-
-    private val viewModel: AuthViewModel by viewModels()
+    private val authViewModel: AuthViewModel by viewModels()
+    private val postViewModel: PostViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +44,7 @@ class AppActivity : AppCompatActivity() {
 
         val binding = ActivityAppBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -75,51 +71,12 @@ class AppActivity : AppCompatActivity() {
                 )
         }
 
-        viewModel.data.observe(this) {
+        authViewModel.data.observe(this) {
             invalidateOptionsMenu()
+            postViewModel.loadPosts()
         }
 
-        setupFirebaseToken()
-        checkGoogleApiAvailability()
-        requestNotificationsPermission()
-
-        addMenuProvider(object : MenuProvider {
-            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
-                menuInflater.inflate(R.menu.menu_main, menu)
-
-                menu.let {
-                    it.setGroupVisible(R.id.unauthenticated, !viewModel.authenticated)
-                    it.setGroupVisible(R.id.authenticated, viewModel.authenticated)
-                }
-            }
-
-            override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
-                when (menuItem.itemId) {
-                    R.id.signin -> {
-                        auth.setAuth(5, "x-token")
-                        viewModel.loadPosts(forceRefresh = true)
-                        true
-                    }
-
-                    R.id.signup -> {
-                        auth.setAuth(5, "x-token")
-                        viewModel.loadPosts(forceRefresh = true)
-                        true
-                    }
-
-                    R.id.signout -> {
-                        auth.removeAuth()
-                        viewModel.loadPosts(forceRefresh = true)
-                        true
-                    }
-
-                    else -> false
-                }
-        })
-    }
-
-    private fun setupFirebaseToken() {
-        firebaseMessagingWrapper.token.addOnCompleteListener { task ->
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 println("some stuff happened: ${task.exception}")
                 return@addOnCompleteListener
@@ -128,21 +85,40 @@ class AppActivity : AppCompatActivity() {
             val token = task.result
             println(token)
         }
-    }
 
-    private fun checkGoogleApiAvailability() {
-        with(googleApiAvailabilityWrapper) {
-            val code = isGooglePlayServicesAvailable(this@AppActivity)
-            if (code == ConnectionResult.SUCCESS) {
-                return@with
+        checkGoogleApiAvailability()
+        requestNotificationsPermission()
+
+        addMenuProvider(object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menuInflater.inflate(R.menu.menu_main, menu)
+
+                menu.let {
+                    it.setGroupVisible(R.id.unauthenticated, !authViewModel.authenticated)
+                    it.setGroupVisible(R.id.authenticated, authViewModel.authenticated)
+                }
             }
-            if (isUserResolvableError(code)) {
-                getErrorDialog(this@AppActivity, code, 9000)?.show()
-                return
-            }
-            Toast.makeText(this@AppActivity, R.string.google_play_unavailable, Toast.LENGTH_LONG)
-                .show()
-        }
+
+            override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
+                when (menuItem.itemId) {
+                    R.id.signin -> {
+                        auth.setAuth(5, "x-token")
+                        true
+                    }
+
+                    R.id.signup -> {
+                        auth.setAuth(5, "x-token")
+                        true
+                    }
+
+                    R.id.signout -> {
+                        auth.removeAuth()
+                        true
+                    }
+
+                    else -> false
+                }
+        })
     }
 
     private fun requestNotificationsPermission() {
@@ -157,5 +133,20 @@ class AppActivity : AppCompatActivity() {
         }
 
         requestPermissions(arrayOf(permission), 1)
+    }
+
+    private fun checkGoogleApiAvailability() {
+        with(GoogleApiAvailability.getInstance()) {
+            val code = isGooglePlayServicesAvailable(this@AppActivity)
+            if (code == ConnectionResult.SUCCESS) {
+                return@with
+            }
+            if (isUserResolvableError(code)) {
+                getErrorDialog(this@AppActivity, code, 9000)?.show()
+                return
+            }
+            Toast.makeText(this@AppActivity, R.string.google_play_unavailable, Toast.LENGTH_LONG)
+                .show()
+        }
     }
 }
